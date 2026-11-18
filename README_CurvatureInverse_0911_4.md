@@ -1,5 +1,9 @@
 # MilliHygro 0911_4 · Curvature Inverse
 
+## Online demo
+
+The deployed GitHub Pages site is available at [https://xinan-annie.github.io/MilliHygro/](https://xinan-annie.github.io/MilliHygro/). It is published from the root of the `main` branch through `index.html`.
+
 ## What changed
 
 `MilliHygro_0911_4_CurvatureInverse.html` adds an inverse design step to the existing UI. For each editable region, the user selects a CMYK color (which sets the concentration sum), enters the required absolute curvature, and chooses which face has more toner. The tool then calculates the required front/back concentration allocation and updates the print previews.
