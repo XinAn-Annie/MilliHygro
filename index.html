@@ -285,6 +285,8 @@
       .outline-grid,.pattern-list{grid-template-columns:repeat(4,minmax(0,1fr))}
     }
     .upload-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}.upload-options label{display:flex;align-items:center;justify-content:center;min-height:56px;padding:8px;border:1px solid #c8ced9;border-radius:8px;background:#fafbfc;color:#343942;text-align:center;font-size:12px;font-weight:700;cursor:pointer}.upload-options label:hover,.upload-options label:focus-within{border-color:#6379b7;background:#f8faff}.upload-options input{position:absolute;width:1px;height:1px;opacity:0}.upload-status{margin:8px 0 0;color:#545b66;font-size:12px;line-height:1.4}.upload-status[data-error="true"]{color:#a53344}.upload-size{margin-top:8px}.upload-size input{display:block}.upload-size .outline-size-limits{margin-top:6px}.png-controls .range{margin-top:12px}.png-note{margin-top:8px;color:#626a78;font-size:11px;line-height:1.4}.section[hidden],.material-standard[hidden],.png-controls[hidden]{display:none!important}
+    #materialStandard [hidden],#linkedPngLabel[hidden]{display:none!important}
+    #colorEditor:has([data-bitmap-face]){display:block}
   </style>
 </head>
 <body>
@@ -329,7 +331,7 @@
       <aside class="controls">
         <header class="side-brand"><div><strong>MilliHygro</strong><span>Curvature → Print</span></div><small>04</small></header>
         <div class="scroll">
-          <section class="section" id="uploadSection"><div class="title"><span>00</span><div><h2>Import</h2></div></div><div class="upload-options"><label>Layered SVG<input id="svgUpload" type="file" accept=".svg,image/svg+xml" aria-label="Upload layered SVG"></label><label>PNG image<input id="pngUpload" type="file" accept=".png,image/png" aria-label="Upload PNG"></label></div><p class="upload-status" id="uploadStatus" aria-live="polite">Upload a file, or use the Outline library below.</p><div class="outline-size upload-size" id="uploadSize" hidden><div class="outline-size-head"><span>Size</span><strong id="importedSizeText">10 × 10 mm</strong></div><input id="importWidthMm" type="range" min="1" max="50" step="0.01" value="10" aria-label="Imported artwork width in millimeters"><div class="outline-size-limits"><span>1 mm</span><span><strong id="importWidthScaleText">1.00×</strong></span><span>50 mm</span></div></div><button id="useLibrary" type="button" hidden>Use Outline library</button></section>
+          <section class="section" id="uploadSection"><div class="title"><span>00</span><div><h2>Import</h2></div></div><div class="upload-options"><label>Layered SVG<input id="svgUpload" type="file" accept=".svg,image/svg+xml" aria-label="Upload layered SVG"></label><label>PNG image<input id="pngUpload" type="file" accept=".png,image/png" aria-label="Upload PNG"></label></div><label class="png-note" id="linkedPngLabel" hidden>Linked PNG files <input id="linkedPngFiles" type="file" accept=".png,image/png" multiple></label><p class="upload-status" id="uploadStatus" aria-live="polite">Upload a file, or use the Outline library below.</p><div class="outline-size upload-size" id="uploadSize" hidden><div class="outline-size-head"><span>Size</span><strong id="importedSizeText">10 × 10 mm</strong></div><input id="importWidthMm" type="range" min="1" max="50" step="0.01" value="10" aria-label="Imported artwork width in millimeters"><div class="outline-size-limits"><span>1 mm</span><span><strong id="importWidthScaleText">1.00×</strong></span><span>50 mm</span></div></div><button id="useLibrary" type="button" hidden>Use Outline library</button></section>
           <section class="section" id="outlineSection"><div class="title"><span>01</span><div><h2>Outline</h2></div></div><div class="outline-grid" id="outlines"></div><div id="outlineSizeControl"></div></section>
           <section class="section" id="patternSection"><div class="title"><span>02</span><div><h2>Pattern</h2></div></div><div class="pattern-list" id="patterns"></div><div class="pattern-skip" id="patternSkip" hidden><strong>None</strong></div></section>
           <div id="layers" hidden></div>
@@ -343,6 +345,7 @@
        Local assets are attempted first for portable/offline use. If they are
        missing, each script falls back to jsDelivr. Full offline 3D therefore
        requires assets/three.min.js and assets/OrbitControls.js. -->
+  <script src="assets/png-layers.js"></script>
   <script src="assets/three.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'"></script>
   <script src="assets/OrbitControls.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'"></script>
   <script>
@@ -553,11 +556,35 @@
     function sampleImportMask(mask,x,y){if(!mask)return 0;const px=Math.max(0,Math.min(IMPORT_PIXELS-1,Math.floor(x*IMPORT_PIXELS))),py=Math.max(0,Math.min(IMPORT_PIXELS-1,Math.floor(y*IMPORT_PIXELS)));return mask.data[(py*IMPORT_PIXELS+px)*4+3]}
     function importOwnerAt(x,y){if(!state.imported)return -1;const u=x/designSpanMm()+.5,v=.5-y/designSpanMm();if(state.source==='png')return sampleImportMask(state.imported.alphaData,u,v)>32?0:-1;const mechanicalCut=state.imported.mechanicalCutData||state.imported.cutData;if(sampleImportMask(state.imported.outlineData,u,v)<64||sampleImportMask(mechanicalCut,u,v)>80)return -1;for(let i=state.imported.regions.length-1;i>=0;i--)if(sampleImportMask(state.imported.regions[i].maskData,u,v)>64)return i;return -1}
     function pngMetrics(){const source=state.imported,base=source?.meanCMYKSum||0,front=base*state.pngFront/100,back=base*state.pngBack/100,rawSum=front+back,factor=rawSum>400?400/rawSum:1,modelFront=front*factor,modelBack=back*factor,sum=modelFront+modelBack,difference=Math.abs(modelBack-modelFront),magnitude=surfaceKappa(sum,difference);return {front,back,sum,difference,magnitude,actualCurvature:(front>=back?1:-1)*magnitude,limited:factor<1}}
-    function drawImported(view,s){const canvas=document.createElement('canvas');canvas.width=canvas.height=s;const ctx=canvas.getContext('2d'),isBack=view==='back'||view==='display-back',isCut=view==='cut',source=state.imported;ctx.fillStyle='#fff';ctx.fillRect(0,0,s,s);ctx.save();if(isBack){ctx.translate(s,0);ctx.scale(-1,1)}const box=importedPlacement(s);if(state.source==='png'){ctx.globalAlpha=isCut?1:(isBack?state.pngBack:state.pngFront)/100;ctx.drawImage(source.image,...box);ctx.globalAlpha=1}else{if(!isCut)for(const region of source.regions){const layer=document.createElement('canvas');layer.width=layer.height=s;const paint=layer.getContext('2d');paint.fillStyle=fill(paint,region.style,s,view);paint.fillRect(0,0,s,s);paint.globalCompositeOperation='destination-in';paint.drawImage(region.mask,0,0,s,s);ctx.drawImage(layer,0,0)}else{ctx.strokeStyle='#ee365d';ctx.lineWidth=Math.max(1,s*.001);ctx.lineCap='round';ctx.lineJoin='round';for(const line of source.cutPaths){ctx.beginPath();line.forEach(([x,y],i)=>{const px=(x/designSpanMm()+.5)*s,py=(.5-y/designSpanMm())*s;if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py)});ctx.stroke()}}if(isCut){ctx.strokeStyle='#ee365d';ctx.lineWidth=Math.max(1,s*.0012);ctx.lineCap='round';ctx.lineJoin='round';for(const line of source.outlinePaths){ctx.beginPath();line.forEach(([x,y],i)=>{const px=(x/designSpanMm()+.5)*s,py=(.5-y/designSpanMm())*s;if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py)});ctx.closePath();ctx.stroke()}}}ctx.restore();return canvas}
+    function drawImported(view,s){const canvas=document.createElement('canvas');canvas.width=canvas.height=s;const ctx=canvas.getContext('2d'),isBack=view==='back'||view==='display-back',isCut=view==='cut',source=state.imported;ctx.fillStyle='#fff';ctx.fillRect(0,0,s,s);ctx.save();if(isBack){ctx.translate(s,0);ctx.scale(-1,1)}const box=importedPlacement(s);if(state.source==='png'){ctx.globalAlpha=isCut?1:(isBack?state.pngBack:state.pngFront)/100;ctx.drawImage(source.image,...box);ctx.globalAlpha=1}else{if(!isCut)for(const region of source.regions)paintImportedRegion(ctx,region,s,view);else{ctx.strokeStyle='#ee365d';ctx.lineWidth=Math.max(1,s*.001);ctx.lineCap='round';ctx.lineJoin='round';for(const line of source.cutPaths){ctx.beginPath();line.forEach(([x,y],i)=>{const px=(x/designSpanMm()+.5)*s,py=(.5-y/designSpanMm())*s;if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py)});ctx.stroke()}}if(isCut){ctx.strokeStyle='#ee365d';ctx.lineWidth=Math.max(1,s*.0012);ctx.lineCap='round';ctx.lineJoin='round';for(const line of source.outlinePaths){ctx.beginPath();line.forEach(([x,y],i)=>{const px=(x/designSpanMm()+.5)*s,py=(.5-y/designSpanMm())*s;if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py)});ctx.closePath();ctx.stroke()}}}ctx.restore();return canvas}
+
+    const linkedPngFiles=new Map();let pendingSvgFile=null;
+    function bitmapForStyle(st){return state.source==='svg'&&state.imported?state.imported.regions.find(region=>region.style===st&&region.bitmap):null}
+    function bitmapMetrics(region){
+      const base=cmykSum(region.dominant.hex),front=base*region.frontOpacity/100,back=base*region.backOpacity/100,sum=front+back,difference=Math.abs(back-front);
+      // Keep actual print concentrations intact; clamp only the fitted-model domain.
+      const modelSum=Math.min(400,sum),modelDifference=Math.min(modelSum,difference),magnitude=surfaceKappa(modelSum,modelDifference);
+      return {front,back,sum,difference,modelSum,magnitude,actualCurvature:(front>=back?1:-1)*magnitude,limited:sum>400};
+    }
+    function paintImportedRegion(ctx,region,s,view){
+      if(region.bitmap){ctx.save();ctx.globalAlpha=(view==='back'||view==='display-back'?region.backOpacity:region.frontOpacity)/100;ctx.drawImage(region.bitmap,0,0,s,s);ctx.restore();return}
+      const layer=document.createElement('canvas');layer.width=layer.height=s;const paint=layer.getContext('2d');paint.fillStyle=fill(paint,region.style,s,view);paint.fillRect(0,0,s,s);paint.globalCompositeOperation='destination-in';paint.drawImage(region.mask,0,0,s,s);ctx.drawImage(layer,0,0);
+    }
+    function bitmapControlsHTML(region){
+      const p=bitmapMetrics(region);
+      return '<p class="png-note">Original PNG colors · dominant color '+region.dominant.hex+' ('+(region.dominant.share*100).toFixed(1)+'% grouped area)</p>'+
+        ['front','back'].map(face=>'<div class="range"><label><span>'+ (face==='front'?'Front':'Back')+' opacity</span><strong id="bitmap-'+face+'-value">'+region[face+'Opacity']+'%</strong></label><input data-bitmap-face="'+face+'" type="range" min="0" max="100" step="1" value="'+region[face+'Opacity']+'"></div>').join('')+
+        '<div class="fit-output" id="bitmapMetrics">'+bitmapReadoutHTML(p)+'</div>';
+    }
+    function bitmapReadoutHTML(p){
+      return [['Front CMYK',p.front.toFixed(1)+'%'],['Back CMYK',p.back.toFixed(1)+'%'],['|ΔC|',p.difference.toFixed(1)+'%'],['|κ|',p.magnitude.toFixed(3)+' mm⁻¹']].map(([name,value])=>'<div><small>'+name+'</small><strong>'+value+'</strong></div>').join('')+
+        (p.limited?'<div class="fit-output-note">Total concentration exceeds 400%; curvature uses the fitted boundary.</div>':'');
+    }
+
     function importedMaterialCanvas(view='display-front',s=1000){
       const canvas=document.createElement('canvas');canvas.width=canvas.height=s;const ctx=canvas.getContext('2d'),source=state.imported,isBack=view==='back'||view==='display-back';
       ctx.fillStyle='#fff';ctx.fillRect(0,0,s,s);ctx.save();if(isBack){ctx.translate(s,0);ctx.scale(-1,1)}
-      for(const region of source.regions){const layer=document.createElement('canvas');layer.width=layer.height=s;const paint=layer.getContext('2d');paint.fillStyle=fill(paint,region.style,s,view);paint.fillRect(0,0,s,s);paint.globalCompositeOperation='destination-in';paint.drawImage(region.mask,0,0,s,s);ctx.drawImage(layer,0,0)}
+      for(const region of source.regions)paintImportedRegion(ctx,region,s,view);
       ctx.restore();return canvas;
     }
     function importedAlpha(s){const canvas=document.createElement('canvas');canvas.width=canvas.height=s;const ctx=canvas.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,s,s);if(state.source==='png'){ctx.drawImage(state.imported.alphaMask,0,0,s,s)}else{ctx.drawImage(state.imported.surfaceMask||state.imported.outlineMask,0,0,s,s);ctx.globalCompositeOperation='destination-out';ctx.drawImage(state.imported.cutOverlay,0,0,s,s);ctx.globalCompositeOperation='source-over'}return canvas}
@@ -608,13 +635,13 @@
         if(regionIndex===0)for(const coating of state.imported.regions.slice(1))ctx.drawImage(coating.mask,0,0,s,s);
         ctx.globalCompositeOperation='source-over';return canvas}
     function physicalMm(raw){if(!raw)return NaN;const m=String(raw).trim().match(/^([\d.]+)\s*(mm|cm|in|px|pt)?$/i);if(!m)return NaN;const n=Number(m[1]),unit=(m[2]||'px').toLowerCase();return n*({mm:1,cm:10,in:25.4,px:25.4/96,pt:25.4/72}[unit]||1)}
-    function safeSvg(root){const allowed=new Set(['svg','g','path','rect','circle','ellipse','line','polyline','polygon','defs','clipPath','mask','linearGradient','radialGradient','stop','style']);const attrs=new Set(['id','class','data-name','aria-label','d','x','y','x1','y1','x2','y2','cx','cy','r','rx','ry','width','height','viewBox','points','transform','fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','fill-rule','opacity','fill-opacity','stroke-opacity','clip-path','mask','offset','stop-color','stop-opacity','gradientUnits','gradientTransform','preserveAspectRatio','data-role','data-region','data-hinge-for','data-cut-for','data-cut-between']);for(const node of [...root.querySelectorAll('*')].reverse()){if(!allowed.has(node.localName)){node.remove();continue}if(node.localName==='style'){if(/url\s*\(|@import|@font-face/i.test(node.textContent||''))node.remove();continue}for(const attr of [...node.attributes]){const key=attr.localName,value=attr.value;if((!attrs.has(key)&&!['label','groupmode'].includes(key))||/url\s*\((?!\s*#)/i.test(value)||/javascript:|data:|https?:/i.test(value)||key.startsWith('on'))node.removeAttributeNode(attr)}}root.setAttribute('xmlns',SVG_NS);return root}
+    function safeSvg(root){const allowed=new Set(['svg','g','image','path','rect','circle','ellipse','line','polyline','polygon','defs','clipPath','mask','linearGradient','radialGradient','stop','style']);const attrs=new Set(['href','id','class','data-name','aria-label','d','x','y','x1','y1','x2','y2','cx','cy','r','rx','ry','width','height','viewBox','points','transform','fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','fill-rule','opacity','fill-opacity','stroke-opacity','clip-path','mask','offset','stop-color','stop-opacity','gradientUnits','gradientTransform','preserveAspectRatio','data-role','data-region','data-hinge-for','data-cut-for','data-cut-between']);for(const node of [...root.querySelectorAll('*')].reverse()){if(!allowed.has(node.localName)){node.remove();continue}if(node.localName==='style'){if(/url\s*\(|@import|@font-face/i.test(node.textContent||''))node.remove();continue}for(const attr of [...node.attributes]){const key=attr.localName,value=attr.value;if(node.localName==='image'&&key==='href'&&PngLayers.isPng(value))continue;if((!attrs.has(key)&&!['label','groupmode'].includes(key))||/url\s*\((?!\s*#)/i.test(value)||/javascript:|data:|https?:/i.test(value)||key.startsWith('on'))node.removeAttributeNode(attr)}}root.setAttribute('xmlns',SVG_NS);return root}
     function svgColor(node,key){const direct=node.getAttribute(key);if(direct)return direct.trim().toLowerCase();const match=(node.getAttribute('style')||'').match(new RegExp('(?:^|;)\\s*'+key+'\\s*:\\s*([^;]+)','i'));return match?match[1].trim().toLowerCase():''}
     function isBlackStroke(node){const value=svgColor(node,'stroke').replace(/\s/g,'');return ['black','#000','#000000','rgb(0,0,0)','rgb(0%,0%,0%)'].includes(value)}
     function isClosedSvg(node){return ['rect','circle','ellipse','polygon'].includes(node.localName)||(node.localName==='path'&&/[zZ]/.test(node.getAttribute('d')||''))}
     function svgGeometry(root){return [...root.querySelectorAll('path,rect,circle,ellipse,line,polyline,polygon')].filter(el=>!el.closest('defs'))}
     function svgLinePoints(node,svg,vb,w,h){const total=node.getTotalLength(),count=Math.max(2,Math.min(1024,Math.ceil(total/2))),rootMatrix=svg.getCTM(),localMatrix=node.getCTM(),matrix=rootMatrix&&localMatrix?rootMatrix.inverse().multiply(localMatrix):new DOMMatrix(),points=[];for(let i=0;i<=count;i++){const p=node.getPointAtLength(total*i/count).matrixTransform(matrix);points.push([(p.x-vb[0])/vb[2]*w-w/2,h/2-(p.y-vb[1])/vb[3]*h])}return points}
-    async function rasterSvgMask(root,selected,cut=false){const clone=root.cloneNode(true),geometry=svgGeometry(clone);geometry.forEach((node,i)=>{if(!selected.has(i)){node.remove();return}node.setAttribute('fill',cut?'none':'#ffffff');node.setAttribute('stroke',cut?'#000000':'none');node.removeAttribute('style');node.removeAttribute('class')});clone.setAttribute('width','900');clone.setAttribute('height','900');clone.setAttribute('preserveAspectRatio','none');const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),image=new Image();try{await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('SVG layer could not be rendered'));image.src=url});const canvas=importCanvas(),ctx=canvas.getContext('2d'),source=state.imported,span=1.4*Math.max(source.widthMm,source.heightMm),box=[(IMPORT_PIXELS-source.widthMm/span*IMPORT_PIXELS)/2,(IMPORT_PIXELS-source.heightMm/span*IMPORT_PIXELS)/2,source.widthMm/span*IMPORT_PIXELS,source.heightMm/span*IMPORT_PIXELS];ctx.drawImage(image,...box);return canvas}finally{URL.revokeObjectURL(url)}}
+    async function rasterSvgMask(root,selected,cut=false){const clone=root.cloneNode(true),geometry=svgGeometry(clone);geometry.forEach((node,i)=>{if(!selected.has(i)){node.remove();return}node.setAttribute('fill',cut?'none':'#ffffff');node.setAttribute('stroke',cut?'#000000':'none');node.removeAttribute('style');node.removeAttribute('class')});const source=state.imported,rasterWidth=900,rasterHeight=Math.max(1,Math.round(rasterWidth*(source.heightMm/source.widthMm)));clone.setAttribute('width',String(rasterWidth));clone.setAttribute('height',String(rasterHeight));clone.style.width=rasterWidth+'px';clone.style.height=rasterHeight+'px';clone.style.position='static';clone.style.left='';clone.style.top='';clone.setAttribute('preserveAspectRatio','none');const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),image=new Image();try{await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('SVG layer could not be rendered'));image.src=url});const canvas=importCanvas(),ctx=canvas.getContext('2d'),span=1.4*Math.max(source.widthMm,source.heightMm),box=[(IMPORT_PIXELS-source.widthMm/span*IMPORT_PIXELS)/2,(IMPORT_PIXELS-source.heightMm/span*IMPORT_PIXELS)/2,source.widthMm/span*IMPORT_PIXELS,source.heightMm/span*IMPORT_PIXELS];ctx.drawImage(image,...box);return canvas}finally{URL.revokeObjectURL(url)}}
     function svgColorToHex(value){
       const text=String(value||'').trim().toLowerCase();
       if(/^#[0-9a-f]{6}$/i.test(text))return text.toUpperCase();
@@ -643,15 +670,27 @@
       return {x,y,width:right-x,height:bottom-y};
     }
     async function rasterSvgLayer(root,target,mode,widthMm,heightMm,contentBox,excludeIds=[]){
+      if(mode==='color'){
+        const sourceImage=target?.querySelector('image');
+        if(sourceImage){
+          const href=sourceImage.getAttribute('href')||sourceImage.getAttributeNS('http://www.w3.org/1999/xlink','href');
+          const image=new Image();image.src=href;await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject});
+          const canvas=importCanvas(),ctx=canvas.getContext('2d'),x=Number(sourceImage.getAttribute('x')||0),y=Number(sourceImage.getAttribute('y')||0),w=Number(sourceImage.getAttribute('width')||image.width),h=Number(sourceImage.getAttribute('height')||image.height),transform=sourceImage.getAttribute('transform')||'',scale=transform.indexOf('scale(')>=0?Number(transform.slice(transform.indexOf('scale(')+6).split(/[), ]/)[0])||1:1,translateAt=transform.indexOf('translate('),translateText=translateAt>=0?transform.slice(translateAt+10).split(')')[0]:'',translateValues=translateText.split(/[ ,]+/).filter(Boolean).map(Number),tx=Number.isFinite(translateValues[0])?translateValues[0]:0,ty=Number.isFinite(translateValues[1])?translateValues[1]:0;
+          const span=1.4*Math.max(widthMm,heightMm),drawW=widthMm/span*IMPORT_PIXELS,drawH=heightMm/span*IMPORT_PIXELS,pixelScale=Math.min(drawW/contentBox.width,drawH/contentBox.height);
+          const dx=(x*scale+tx-contentBox.x)*pixelScale+(IMPORT_PIXELS-drawW)/2,dy=(y*scale+ty-contentBox.y)*pixelScale+(IMPORT_PIXELS-drawH)/2,dw=w*scale*pixelScale,dh=h*scale*pixelScale;
+          ctx.drawImage(image,Number.isFinite(dx)?dx:0,Number.isFinite(dy)?dy:0,Number.isFinite(dw)&&dw>0?dw:IMPORT_PIXELS,Number.isFinite(dh)&&dh>0?dh:IMPORT_PIXELS);return canvas;
+        }
+      }
       const clone=root.cloneNode(true),targetId=target?.getAttribute('id')||'',targetClone=targetId?[...clone.querySelectorAll('*')].find(node=>node.getAttribute('id')===targetId):[...clone.children].find((node)=>node.localName==='g');
       if(!targetClone)throw Error('SVG layer could not be isolated');
       /* Keep the requested group and its ancestor transforms. This also works
          when Outline, Part, or cut groups are nested below an SVG wrapper. */
-      for(const node of [...clone.querySelectorAll('path,rect,circle,ellipse,line,polyline,polygon')])if(node!==targetClone&&!targetClone.contains(node))node.remove();
+      for(const node of [...clone.querySelectorAll('path,rect,circle,ellipse,line,polyline,polygon,image')])if(!node.closest('defs')&&node!==targetClone&&!targetClone.contains(node))node.remove();
       const excluded=new Set(excludeIds.map(String));
-      for(const node of [...targetClone.querySelectorAll('path,rect,circle,ellipse,line,polyline,polygon')]){
+      for(const node of [...targetClone.querySelectorAll('path,rect,circle,ellipse,line,polyline,polygon,image')]){
         let excludedByAncestor=excluded.has(String(node.id||''));for(let parent=node.parentElement;parent&&!excludedByAncestor;parent=parent.parentElement)excludedByAncestor=excluded.has(String(parent.id||''));
         if(excludedByAncestor){node.remove();continue}
+        if(mode==='color'||node.localName==='image')continue;
         const existing=node.getAttribute('style')||'';
         /* Imported cut strokes are mechanical barriers, not just visual guides.
            Very thin source strokes (for example .1px in butterfly.svg) can
@@ -670,7 +709,8 @@
         else node.setAttribute('style',existing+';fill:#fff!important;stroke:none!important;fill-opacity:1!important;');
       }
       clone.setAttribute('xmlns',SVG_NS);clone.setAttribute('xmlns:xlink','http://www.w3.org/1999/xlink');
-      clone.setAttribute('viewBox',[contentBox.x,contentBox.y,contentBox.width,contentBox.height].join(' '));clone.setAttribute('width','900');clone.setAttribute('height','900');clone.setAttribute('preserveAspectRatio','none');
+      const rasterWidth=900,rasterHeight=Math.max(1,Math.round(rasterWidth*(contentBox.height/contentBox.width)));
+      clone.setAttribute('viewBox',[contentBox.x,contentBox.y,contentBox.width,contentBox.height].join(' '));clone.setAttribute('width',String(rasterWidth));clone.setAttribute('height',String(rasterHeight));clone.style.width=rasterWidth+'px';clone.style.height=rasterHeight+'px';clone.style.position='static';clone.style.left='';clone.style.top='';clone.setAttribute('preserveAspectRatio','none');
       const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),image=new Image();
       try{
         await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('SVG layer could not be rendered'));image.src=url});
@@ -678,7 +718,7 @@
         ctx.drawImage(image,...box);
         const pixels=ctx.getImageData(0,0,IMPORT_PIXELS,IMPORT_PIXELS).data;
         let alphaPixels=0;for(let i=3;i<pixels.length;i+=4)if(pixels[i]>0){alphaPixels++;if(alphaPixels>8)break}
-        if(alphaPixels===0){
+        if(alphaPixels===0&&mode!=='color'&&!targetClone.querySelector('image')){
           /* Some Chromium builds return a transparent bitmap for a Blob SVG
              that contains nested CSS groups. Fall back to drawing the same
              source paths with Path2D so imported layers remain visible. */
@@ -700,13 +740,14 @@
           const retry=ctx.getImageData(0,0,IMPORT_PIXELS,IMPORT_PIXELS).data;for(let i=3;i<retry.length;i+=4)if(retry[i]>0){alphaPixels++;if(alphaPixels>8)break}
         }
         if(alphaPixels===0)throw Error('SVG layer rendered an empty mask');
-        return canvas;
+        return mode==='color'?canvas:PngLayers.whiteAlpha(canvas);
       }finally{URL.revokeObjectURL(url)}
     }
     async function loadSvg(file){
-      if(file.size>5*1024*1024)throw Error('SVG must be smaller than 5 MB');
+      if(file.size>40*1024*1024)throw Error('SVG must be smaller than 40 MB');
       const xml=new DOMParser().parseFromString(await file.text(),'image/svg+xml');
       if(xml.querySelector('parsererror')||xml.documentElement.localName!=='svg')throw Error('Invalid SVG file');
+      await PngLayers.resolveImages(xml.documentElement,linkedPngFiles);
       const root=safeSvg(xml.documentElement),rawView=(root.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number),vb=rawView.length===4&&rawView[2]>0&&rawView[3]>0?rawView:[0,0,Number(root.getAttribute('width'))||100,Number(root.getAttribute('height'))||100],rawWidth=physicalMm(root.getAttribute('width')),rawHeight=physicalMm(root.getAttribute('height'));
       root.setAttribute('viewBox',vb.join(' '));root.style.position='absolute';root.style.left='-10000px';root.style.width='900px';root.style.height='900px';document.body.appendChild(root);
       try{
@@ -719,7 +760,8 @@
         const patternGroups=[...new Set(partGroups.filter(group=>group!==outlineGroup&&group!==cutGroup))].sort((a,b)=>{const na=Number((a.id||'').match(/Part(\d+)/i)?.[1]||999),nb=Number((b.id||'').match(/Part(\d+)/i)?.[1]||999);return na-nb});
         if(!outlineGroup&&!patternGroups.length)throw Error('SVG needs an Outline or at least one pattern layer');
         const outlineSource=outlineGroup||patternGroups[0];
-        const contentBox=svgCombinedBounds([outlineSource],root,vb),widthMm=Number.isFinite(rawWidth)?Math.min(50,rawWidth*contentBox.width/vb[2]):10,heightMm=Number.isFinite(rawHeight)?Math.min(50,rawHeight*contentBox.height/vb[3]):widthMm*contentBox.height/contentBox.width;
+        const contentBox=svgCombinedBounds([outlineSource],root,vb);
+        const naturalWidth=Number.isFinite(rawWidth)?rawWidth*contentBox.width/vb[2]:10,naturalHeight=Number.isFinite(rawHeight)?rawHeight*contentBox.height/vb[3]:naturalWidth*contentBox.height/contentBox.width,fitScale=Math.min(1,50/Math.max(naturalWidth,naturalHeight)),widthMm=naturalWidth*fitScale,heightMm=naturalHeight*fitScale;
         if(!Number.isFinite(widthMm)||widthMm<=0||!Number.isFinite(heightMm)||heightMm<=0)throw Error('SVG needs visible geometry with a valid boundary');
         const geometrySignature=node=>String(node.getAttribute('d')||node.outerHTML||'').replace(/\s+/g,' ').trim();
         const outlineGeometry=outlineGroup?svgGeometry(outlineGroup):[];
@@ -746,7 +788,8 @@
         }
         const cutPaths=cutRecords.map(record=>record.path),cutMappings=cutRecords.map(record=>({id:record.id,parts:[...record.parts],between:record.between||null})),sharedCutMappings=cutMappings.filter(item=>item.parts.length>1||item.between),hingeCandidates=cutMappings.flatMap(mapping=>mapping.parts.map(part=>({partId:part,cutId:mapping.id,shared:mapping.parts.length>1||!!mapping.between,reference:cutRecords.find(record=>record.id===mapping.id)?.path?.[0]||null})));
         state.imported={name:file.name,widthMm,heightMm,widthBaseMm:widthMm,aspectRatio:heightMm/widthMm,regions:[],outlinePaths,cutPaths,cutPathCount:cutPaths.length,cutMappings,sharedCutMappings,hingeCandidates,ignoredOutlineDuplicateCount,contentBox,outlineId:outlineGroup?.id||'Outline',outlineDetected:!!outlineGroup};
-        const outlineMask=outlineGroup?await rasterSvgLayer(root,outlineGroup,'pattern',widthMm,heightMm,contentBox):importCanvas();
+        state.base=style('#FFFFFF');
+        const outlineMask=outlineGroup?(outlineGroup.querySelector('image')?PngLayers.whiteAlpha(await rasterSvgLayer(root,outlineGroup,'color',widthMm,heightMm,contentBox)):await rasterSvgLayer(root,outlineGroup,'pattern',widthMm,heightMm,contentBox)):importCanvas();
         if(!outlineGroup){const ctx=outlineMask.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(...importedPlacement(IMPORT_PIXELS))}
         const cutMask=cutGroup?await rasterSvgLayer(root,cutGroup,'cut',widthMm,heightMm,contentBox,ignoredCutIds):importCanvas(),mechanicalCutMask=cutGroup?await rasterSvgLayer(root,cutGroup,'mechanical-cut',widthMm,heightMm,contentBox,ignoredCutIds):importCanvas();
         const cutOverlay=importCanvas(),cutOverlayCtx=cutOverlay.getContext('2d');cutOverlayCtx.drawImage(cutMask,0,0);const cutPixels=cutOverlayCtx.getImageData(0,0,IMPORT_PIXELS,IMPORT_PIXELS);for(let i=0;i<cutPixels.data.length;i+=4)if(cutPixels.data[i+3]>0){cutPixels.data[i]=cutPixels.data[i+1]=cutPixels.data[i+2]=0}cutOverlayCtx.putImageData(cutPixels,0,0);
@@ -755,6 +798,13 @@
         for(let i=0;i<patternGroups.length;i++){
           const group=patternGroups[i],mask=await rasterSvgLayer(root,group,'pattern',widthMm,heightMm,contentBox),color=svgGroupDefaultColor(group),id=group.id||('Part'+(i+1));
           state.imported.regions.push({id,name:id,displayName:svgLayerName(group,i),style:style(color),mask,maskData:mask.getContext('2d').getImageData(0,0,IMPORT_PIXELS,IMPORT_PIXELS),role:'coating',partId:id});
+        }
+        for(let i=0;i<state.imported.regions.length;i++){
+          const group=i===0?outlineGroup:patternGroups[i-1],region=state.imported.regions[i];
+          if(!group?.querySelector('image'))continue;
+          region.bitmap=await rasterSvgLayer(root,group,'color',widthMm,heightMm,contentBox);
+          region.dominant=PngLayers.dominant(region.bitmap);region.frontOpacity=100;region.backOpacity=0;
+          region.style.colorA=region.style.colorB=region.dominant.hex;
         }
         /* Split each Part into local mask lobes before choosing hinges. A Part
            may contain left/right wings (for example Part1 and Part3); one
@@ -810,7 +860,7 @@
     /* Approximate the visible print color at a given front/back ink percentage
        by linearly mixing the selected RGB color with white. */
     function mixWithWhite(hex,inkPercent){const t=Math.max(0,Math.min(1,inkPercent/100)),rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)),mixed=rgb.map(v=>Math.round(255+(v-255)*t));return '#'+mixed.map(v=>v.toString(16).padStart(2,'0')).join('')}
-    function surfaceInkPercent(st,view){if(state.source==='png'&&state.imported)return view==='back'?state.pngBack:state.pngFront;const p=hiddenPrintState(st);return view==='back'?p.backInkPercent:p.frontInkPercent}
+    function surfaceInkPercent(st,view){const bitmap=bitmapForStyle(st);if(bitmap)return view==='back'?bitmap.backOpacity:bitmap.frontOpacity;if(state.source==='png'&&state.imported)return view==='back'?state.pngBack:state.pngFront;const p=hiddenPrintState(st);return view==='back'?p.backInkPercent:p.frontInkPercent}
     function surfaceColor(st,hex,view){return view==='front'||view==='back'?mixWithWhite(hex,surfaceInkPercent(st,view)):hex}
     /* Return either a solid fill or a CanvasGradient for a material region.
        Concentration Gradient always runs from white/zero toward target color. */
@@ -1031,10 +1081,10 @@
     function maxCurvatureFromCMYKSum(value){return surfaceMaxKappa(value)}
     /* The fitted surface returns a non-negative magnitude. A separate direction
        flag converts that magnitude into the signed value used by the 3D model. */
-    function materialMetrics(st){if(state.source==='png'&&state.imported){const png=pngMetrics();return {baseCMYKSum:png.sum,maxCurvature:surfaceMaxKappa(png.sum),curvatureMagnitude:png.magnitude,bendDirection:png.actualCurvature<0?'back':'front',actualCurvature:png.actualCurvature,limited:png.limited}}const sumA=st.mode==='gradient'?cmykSum(st.colorA):cmykObjectSum(currentTargetCMYK(st)),sumB=st.mode==='gradient'?cmykSum(st.colorB):sumA,baseCMYKSum=Math.max(sumA,sumB),maxCurvature=maxCurvatureFromCMYKSum(baseCMYKSum),rawCurvature=Number(st.actualCurvature),safeCurvature=Number.isFinite(rawCurvature)?Math.abs(rawCurvature):0,curvatureMagnitude=Math.max(0,Math.min(safeCurvature,maxCurvature)),bendDirection=st.bendDirection==='back'?'back':'front',actualCurvature=(bendDirection==='front'?1:-1)*curvatureMagnitude;return {baseCMYKSum,maxCurvature,curvatureMagnitude,bendDirection,actualCurvature,limited:safeCurvature>maxCurvature+1e-9}}
+    function materialMetrics(st){const bitmap=bitmapForStyle(st);if(bitmap){const p=bitmapMetrics(bitmap);return {baseCMYKSum:p.sum,maxCurvature:surfaceMaxKappa(p.modelSum),curvatureMagnitude:p.magnitude,bendDirection:p.actualCurvature<0?'back':'front',actualCurvature:p.actualCurvature,limited:p.limited}}if(state.source==='png'&&state.imported){const png=pngMetrics();return {baseCMYKSum:png.sum,maxCurvature:surfaceMaxKappa(png.sum),curvatureMagnitude:png.magnitude,bendDirection:png.actualCurvature<0?'back':'front',actualCurvature:png.actualCurvature,limited:png.limited}}const sumA=st.mode==='gradient'?cmykSum(st.colorA):cmykObjectSum(currentTargetCMYK(st)),sumB=st.mode==='gradient'?cmykSum(st.colorB):sumA,baseCMYKSum=Math.max(sumA,sumB),maxCurvature=maxCurvatureFromCMYKSum(baseCMYKSum),rawCurvature=Number(st.actualCurvature),safeCurvature=Number.isFinite(rawCurvature)?Math.abs(rawCurvature):0,curvatureMagnitude=Math.max(0,Math.min(safeCurvature,maxCurvature)),bendDirection=st.bendDirection==='back'?'back':'front',actualCurvature=(bendDirection==='front'?1:-1)*curvatureMagnitude;return {baseCMYKSum,maxCurvature,curvatureMagnitude,bendDirection,actualCurvature,limited:safeCurvature>maxCurvature+1e-9}}
     /* Numerically invert |κ| = F(Csum, |ΔC|), then split the selected CMYK sum
        between both faces. ΔC follows the paper definition Cback - Cfront. */
-    function hiddenPrintState(st){const material=materialMetrics(st),inverse=invertSurfaceDifference(material.baseCMYKSum,material.curvatureMagnitude),difference=inverse.difference,backHigher=material.bendDirection==='back',frontConcentration=(material.baseCMYKSum+(backHigher?-difference:difference))/2,backConcentration=(material.baseCMYKSum+(backHigher?difference:-difference))/2,frontInkPercent=material.baseCMYKSum>0?frontConcentration/material.baseCMYKSum*100:50,backInkPercent=material.baseCMYKSum>0?backConcentration/material.baseCMYKSum*100:50,signedDifference=backConcentration-frontConcentration;return {frontInkPercent,backInkPercent,inkPercentSum:100,inkPercentDifference:material.baseCMYKSum>0?difference/material.baseCMYKSum*100:0,signedInkPercentDifference:material.baseCMYKSum>0?signedDifference/material.baseCMYKSum*100:0,cmykConcentrationSum:material.baseCMYKSum,cmykConcentrationDifference:difference,signedCMYKConcentrationDifference:signedDifference,frontConcentration,backConcentration,predictedCurvature:surfaceKappa(material.baseCMYKSum,difference),curvatureDirection:backHigher?'back-dominant':'front-dominant',mapping:CONCENTRATION_CURVATURE_MAPPING.type,uiExposed:true,limited:inverse.limited}}
+    function hiddenPrintState(st){const bitmap=bitmapForStyle(st);if(bitmap){const p=bitmapMetrics(bitmap);return {frontInkPercent:bitmap.frontOpacity,backInkPercent:bitmap.backOpacity,frontConcentration:p.front,backConcentration:p.back,cmykConcentrationSum:p.sum,cmykConcentrationDifference:p.difference,signedCMYKConcentrationDifference:p.back-p.front,predictedCurvature:p.magnitude,limited:p.limited}}const material=materialMetrics(st),inverse=invertSurfaceDifference(material.baseCMYKSum,material.curvatureMagnitude),difference=inverse.difference,backHigher=material.bendDirection==='back',frontConcentration=(material.baseCMYKSum+(backHigher?-difference:difference))/2,backConcentration=(material.baseCMYKSum+(backHigher?difference:-difference))/2,frontInkPercent=material.baseCMYKSum>0?frontConcentration/material.baseCMYKSum*100:50,backInkPercent=material.baseCMYKSum>0?backConcentration/material.baseCMYKSum*100:50,signedDifference=backConcentration-frontConcentration;return {frontInkPercent,backInkPercent,inkPercentSum:100,inkPercentDifference:material.baseCMYKSum>0?difference/material.baseCMYKSum*100:0,signedInkPercentDifference:material.baseCMYKSum>0?signedDifference/material.baseCMYKSum*100:0,cmykConcentrationSum:material.baseCMYKSum,cmykConcentrationDifference:difference,signedCMYKConcentrationDifference:signedDifference,frontConcentration,backConcentration,predictedCurvature:surfaceKappa(material.baseCMYKSum,difference),curvatureDirection:backHigher?'back-dominant':'front-dominant',mapping:CONCENTRATION_CURVATURE_MAPPING.type,uiExposed:true,limited:inverse.limited}}
     function signedActivationRatio(st){
       const material=materialMetrics(st);
       return material.maxCurvature>1e-9?Math.max(-1,Math.min(1,material.actualCurvature/material.maxCurvature)):0;
@@ -1130,6 +1180,9 @@
       $('#fiberDirectionControl').innerHTML=rangeHTML('fiberDirection','Fiber',state.fiberDirection,180,'°',1);
       $('#humidityControl').innerHTML=`<div class="range"><label><span>Humidity</span><strong id="humidityText">${Math.round(state.humidity)}%</strong></label><input id="humidity" type="range" min="35" max="95" step="1" value="${state.humidity}" aria-label="Relative humidity"></div>`;
       if(state.source==='png'){const png=pngMetrics();$('#pngFront').value=state.pngFront;$('#pngBack').value=state.pngBack;$('#pngFrontText').textContent=state.pngFront+'%';$('#pngBackText').textContent=state.pngBack+'%';$('#pngFitOutput').innerHTML=`<div><small>Front CMYK</small><strong>${formatPrintChannel(png.front)}%</strong></div><div><small>Back CMYK</small><strong>${formatPrintChannel(png.back)}%</strong></div><div><small>|ΔC|</small><strong>${formatPrintChannel(png.difference)}%</strong></div><div><small>|κ|</small><strong>${png.magnitude.toFixed(3)} mm⁻¹</strong></div>`;}
+      const bitmap=bitmapForStyle(st);
+      for(const selector of ['.mode-tabs','#gradientRange','.calculated-curvature','#actualCurvatureControl','#bendDirectionControl','#fitOutput'])$('#materialStandard').querySelector(selector).hidden=!!bitmap;
+      if(bitmap)$('#colorEditor').innerHTML=bitmapControlsHTML(bitmap);
       $('#caseHint').hidden=state.pattern==='none';
       $('#sizeStatus').textContent='Live · '+currentSize;
       refreshTexture();bindDynamic();
@@ -1160,7 +1213,10 @@
        and non-negative target curvature plus bend direction.
        ====================================================================== */
     function bindDynamic(){
-      const svgInput=$('#svgUpload');if(svgInput)svgInput.onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{await loadSvg(file)}catch(error){$('#uploadStatus').textContent=error.message;$('#uploadStatus').dataset.error='true'}};
+      const importSvg=async file=>{if(!file)return;const previous={source:state.source,imported:state.imported,base:state.base,region:state.region};try{await loadSvg(file);$('#linkedPngLabel').hidden=true}catch(error){Object.assign(state,previous);$('#uploadStatus').textContent=error.message;$('#uploadStatus').dataset.error='true';$('#linkedPngLabel').hidden=!error.message.startsWith('Select linked PNG')}};
+      const svgInput=$('#svgUpload');if(svgInput)svgInput.onchange=async e=>{pendingSvgFile=e.target.files?.[0];linkedPngFiles.clear();await importSvg(pendingSvgFile)};
+      $('#linkedPngFiles').onchange=async e=>{for(const file of e.target.files)linkedPngFiles.set(file.name,file);await importSvg(pendingSvgFile)};
+      $$('[data-bitmap-face]').forEach(input=>input.oninput=()=>{const region=bitmapForStyle(activeStyle());if(!region)return;const face=input.dataset.bitmapFace;region[face+'Opacity']=Math.max(0,Math.min(100,Number(input.value)||0));$('#bitmap-'+face+'-value').textContent=region[face+'Opacity']+'%';$('#bitmapMetrics').innerHTML=bitmapReadoutHTML(bitmapMetrics(region));deformationKey='';refreshTexture()});
       const pngInput=$('#pngUpload');if(pngInput)pngInput.onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{await loadPng(file)}catch(error){$('#uploadStatus').textContent=error.message;$('#uploadStatus').dataset.error='true'}};
       const useLibrary=$('#useLibrary');if(useLibrary)useLibrary.onclick=()=>{state.source='library';state.imported=null;state.outline='diamond';state.outlineScale=1;state.pattern='nestedFrames';state.region='base';geometryKey='';$('#uploadStatus').textContent='Using Outline library';renderUI();setCamera()};
       const widthInput=$('#importWidthMm');if(widthInput)widthInput.oninput=()=>{if(state.imported){const next=Math.max(1,Math.min(50,Number(widthInput.value)||10));state.imported.widthMm=next;state.imported.heightMm=next*(state.imported.aspectRatio||1);geometryKey='';renderFlatPreviews();updateSceneMeta();const sizeText=$('#importedSizeText');if(sizeText)sizeText.textContent=sizeLabel();const scaleText=$('#importWidthScaleText');if(scaleText)scaleText.textContent=(next/(state.imported.widthBaseMm||10)).toFixed(2)+'×';refreshTexture()}};
@@ -1652,7 +1708,7 @@
        a shared component solve. */
     function svgRegionDeformedPoint(regionId,x,y,baseCurvature,effectiveRegionCurvatures){
       const basePoint=cylindricalBend(x,y,baseCurvature);
-      if(regionId==null||regionId===0||!effectiveRegionCurvatures?.[regionId])return basePoint;
+      if(regionId==null||regionId===0||(!state.imported?.regions?.[regionId]?.bitmap&&!effectiveRegionCurvatures?.[regionId]))return basePoint;
       const region=state.imported?.regions?.[regionId],references=region?.hingeReferences||[],meshX=x*1.4,meshY=y*1.4;let selectedReference=references[0]||{center:[meshX,meshY],hinge:region?.hingeReference||[0,0]},nearestDistance=Infinity;for(const candidate of references){const distance=(candidate.center[0]-meshX)*(candidate.center[0]-meshX)+(candidate.center[1]-meshY)*(candidate.center[1]-meshY);if(distance<nearestDistance){nearestDistance=distance;selectedReference=candidate}}const reference=selectedReference.hinge||[0,0],hx=reference[0]/1.4,hy=reference[1]/1.4;
       const angle=(state.fiberDirection+90)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),u=(x-hx)*c+(y-hy)*s,v=-(x-hx)*s+(y-hy)*c,differentialCurvature=effectiveRegionCurvatures[regionId]-baseCurvature,k=differentialCurvature*.18;
       if(Math.abs(k)<1e-9)return basePoint;
@@ -1701,7 +1757,7 @@
               one frame instead of allowing an undefined mechanics graph to
               terminate the animation loop. */
            if(!part.mechanics)continue;
-           const previousKey=part.mechanics.key;solveSvgDeformation(part.mechanics,importedCurvatures);if(previousKey===part.mechanics.key)continue
+           solveSvgDeformation(part.mechanics,importedCurvatures);
          }
         const position=part.mesh.geometry.attributes.position;
         const region=part.regionId?P01_REGIONS[part.regionId-1]:null;

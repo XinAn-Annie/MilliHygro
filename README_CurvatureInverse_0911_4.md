@@ -6,9 +6,9 @@ The deployed GitHub Pages site is available at [https://xinan-annie.github.io/Mi
 
 ## What changed
 
-`MilliHygro_0911_4_CurvatureInverse.html` adds an inverse design step to the existing UI. For each editable region, the user selects a CMYK color (which sets the concentration sum), enters the required absolute curvature, and chooses which face has more toner. The tool then calculates the required front/back concentration allocation and updates the print previews.
+The current `index.html` adds an inverse design step to the existing UI. For each editable region, the user selects a CMYK color (which sets the concentration sum), enters the required absolute curvature, and chooses which face has more toner. The tool then calculates the required front/back concentration allocation and updates the print previews. It also supports layered PNG content embedded in or linked from SVG files, with per-layer front/back opacity controls.
 
-The previous UI file, `MilliHygro_0911_3_UIRefined.html`, is unchanged.
+The deployed entry point is `index.html`; GitHub Pages publishes it from the root of the `main` branch.
 
 ## Fitted model
 
